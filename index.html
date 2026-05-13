@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>가족 걷기 프로젝트 v7</title>
+    <title>가족 걷기 프로젝트 v8</title>
     <style>
         :root { --primary: #4CAF50; --danger: #f44336; --warning: #ff9800; --lucky: #9c27b0; --bg: #f4f7f6; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); padding: 20px; color: #333; max-width: 500px; margin: 0 auto; }
@@ -18,10 +18,10 @@
         .badge-container { display: flex; gap: 4px; flex-wrap: wrap; }
         .status-badge { font-size: 0.65rem; padding: 3px 7px; border-radius: 20px; font-weight: bold; white-space: nowrap; }
         
-        .badge-danger { background: #ffebee; color: var(--danger); }   /* 미달, 위기 */
+        .badge-danger { background: #ffebee; color: var(--danger); }   /* 미달, 보충 */
         .badge-success { background: #e8f5e9; color: var(--primary); } /* 달성 */
         .badge-warning { background: #fff3e0; color: var(--warning); } /* 휴식 */
-        .badge-lucky { background: #f3e5f5; color: var(--lucky); }    /* 안심/행운 */
+        .badge-lucky { background: #f3e5f5; color: var(--lucky); }    /* 안심 */
 
         .input-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
         .input-item { display: flex; flex-direction: column; gap: 5px; }
@@ -38,10 +38,10 @@
 
 <div class="card">
     <h2>💰 주간 최종 벌금</h2>
-    <div class="status-box" id="finalPenalty">₩42,000</div>
+    <div class="status-box" id="finalPenalty">₩49,000</div>
     <div class="summary-info">
-        1보 = 1원 차감 (기본 ₩42,000)<br>
-        <strong>요일별 복수 마크가 표시됩니다.</strong>
+        기본 벌금 ₩49,000 (7,000보 × 7일 기준)<br>
+        <strong>휴식 사용 시 7,000원이 자동 차감됩니다.</strong>
     </div>
 </div>
 
@@ -51,7 +51,7 @@
 </div>
 
 <script>
-    const MAX_PENALTY = 42000; 
+    const MAX_PENALTY = 49000; 
     const days = ['월', '화', '수', '목', '금', '토', '일'];
     
     function init() {
@@ -111,8 +111,10 @@
             const badgeArea = document.getElementById(`badge-area-${i}`);
             let badges = [];
             
+            // 1. 휴식 처리 (7,000원 차감)
             if (isRest) {
-                badges.push(createBadge("🛌 정기 휴식", "badge-warning"));
+                totalDeduction += 7000;
+                badges.push(createBadge("🛌 휴식", "badge-warning"));
                 badgeArea.innerHTML = badges.join('');
                 prevDayStatus = "normal";
                 return; 
@@ -121,42 +123,30 @@
             let walkSteps = Math.max(0, parseInt(document.getElementById(`walk-${i}`).value) || 0);
             let specCount = Math.max(0, parseInt(document.getElementById(`spec-${i}`).value) || 0);
             
-            // 음수 입력 방지 보정
+            // 음수 방지 로직
             if (document.getElementById(`walk-${i}`).value < 0) document.getElementById(`walk-${i}`).value = 0;
             if (document.getElementById(`spec-${i}`).value < 0) document.getElementById(`spec-${i}`).value = 0;
 
             let dailyTotal = walkSteps + (specCount * 7000);
-            if (dailyTotal >= 21000) dailyTotal = 14000; // 최대 인정치 적용
+            if (dailyTotal >= 21000) dailyTotal = 14000; 
 
             totalDeduction += dailyTotal;
 
-            // 마크 판별 로직 (복수 가능)
-            
-            // 1. 미달 마크 (5,000보 미만)
+            // 마크 판별 로직
             if (dailyTotal < 5000) {
                 badges.push(createBadge("⚠️ 미달", "badge-danger"));
             } 
-            
-            // 2. 달성 마크 (7,000보 이상)
             if (dailyTotal >= 7000) {
                 badges.push(createBadge("✅ 달성", "badge-success"));
             }
-
-            // 3. 위기 마크 (전날 5~7천 사이 & 오늘 9천 미만)
-            if (prevDayStatus === "danger-zone") {
-                if (dailyTotal < 9000) {
-                    badges.push(createBadge("🚨 보충 위기", "badge-danger"));
-                }
+            if (prevDayStatus === "danger-zone" && dailyTotal < 9000) {
+                badges.push(createBadge("🚨 보충", "badge-danger"));
             }
-
-            // 4. 행운/안심 마크 (14,000보 이상)
             if (dailyTotal >= 14000) {
-                badges.push(createBadge("🍀 행운/안심", "badge-lucky"));
+                badges.push(createBadge("🍀 안심", "badge-lucky"));
             }
 
             badgeArea.innerHTML = badges.join('');
-
-            // 다음 날을 위한 상태 저장
             prevDayStatus = (dailyTotal >= 5000 && dailyTotal < 7000) ? "danger-zone" : "normal";
         });
 
