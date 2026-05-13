@@ -3,45 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>가족 걷기 프로젝트 v3</title>
+    <title>가족 걷기 프로젝트 v4</title>
     <style>
         :root { --primary: #4CAF50; --danger: #f44336; --bg: #f4f7f6; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); padding: 20px; color: #333; max-width: 500px; margin: 0 auto; }
         .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
         h2 { margin-top: 0; color: #2c3e50; font-size: 1.1rem; border-bottom: 2px solid var(--primary); display: inline-block; padding-bottom: 5px; margin-bottom: 15px; }
-        .status-box { font-size: 1.6rem; font-weight: bold; text-align: center; padding: 20px; background: #fff; border: 2px solid var(--primary); border-radius: 12px; margin-bottom: 10px; color: var(--danger); }
+        .status-box { font-size: 1.8rem; font-weight: bold; text-align: center; padding: 20px; background: #fff; border: 2px solid var(--primary); border-radius: 12px; margin-bottom: 10px; color: var(--danger); }
         
-        .day-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }
-        .day-label { font-weight: bold; width: 45px; color: #555; }
-        .select-group { flex: 1; display: flex; gap: 5px; }
+        .day-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; gap: 10px; }
+        .day-label { font-weight: bold; width: 30px; color: #555; text-align: center; }
         
-        select { padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.85rem; background: #fff; }
-        .activity-sel { flex: 2; }
-        .bonus-sel { flex: 1; font-size: 0.75rem; color: #888; }
+        .input-wrapper { flex: 2; position: relative; }
+        .step-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; box-sizing: border-box; text-align: right; }
         
-        .summary-info { font-size: 0.8rem; color: #666; text-align: center; margin-top: 10px; }
-        .reset-btn { background: #eee; border: none; padding: 10px; border-radius: 8px; width: 100%; margin-top: 20px; color: #888; cursor: pointer; }
+        .type-sel { flex: 1.5; padding: 10px; border: 1px solid #eee; border-radius: 8px; font-size: 0.8rem; background: #f9f9f9; }
+        
+        .summary-info { font-size: 0.8rem; color: #666; text-align: center; margin-top: 10px; line-height: 1.5; }
+        .success-text { color: var(--primary); font-size: 0.75rem; margin-top: 4px; display: block; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>💰 이번 주 정산 벌금</h2>
-    <div class="status-box" id="finalPenalty">₩35,000</div>
-    <div class="summary-info">7,000보 미달 시 ₩5,000 발생 (기본 벌금에서 차감 방식)</div>
+    <h2>💰 이번 주 최종 벌금</h2>
+    <div class="status-box" id="finalPenalty">₩49,000</div>
+    <div class="summary-info">
+        기본 벌금 ₩49,000 (7,000보 × 7일)<br>
+        <strong>1걸음 = 1원 차감</strong> (미달 시에도 걸은 만큼 차감)
+    </div>
 </div>
 
 <div class="card">
-    <h2>📅 주간 기록 (월~일)</h2>
+    <h2>📅 주간 기록 입력</h2>
     <div id="weeklyContainer">
         <!-- 요일별 로우 자동 생성 -->
     </div>
 </div>
 
-<button class="reset-btn" onclick="location.reload()">⚠️ 화면 초기화 (새로고침)</button>
-
 <script>
-    const DAILY_FINE = 5000;
+    const MAX_PENALTY = 49000;
+    const DAILY_TARGET = 7000;
     const days = ['월', '화', '수', '목', '금', '토', '일'];
     
     function init() {
@@ -50,19 +52,17 @@
             const row = document.createElement('div');
             row.className = 'day-row';
             row.innerHTML = `
-                <div class="day-label">${day}요일</div>
-                <div class="select-group">
-                    <select class="activity-sel" onchange="calculate()">
-                        <option value="none">기록 없음 (미달)</option>
-                        <option value="success">7,000보 이상</option>
-                        <option value="special">자전거/필라테스</option>
-                        <option value="rest">정기 휴식일</option>
-                        <option value="double">14,000보 (이틀치)</option>
+                <div class="day-label">${day}</div>
+                <div class="type-sel-wrapper">
+                    <select class="type-sel" id="type-${index}" onchange="handleTypeChange(${index})">
+                        <option value="walk">걷기</option>
+                        <option value="special">자전거/필라</option>
+                        <option value="rest">정기 휴식</option>
                     </select>
-                    <select class="bonus-sel" onchange="calculate()">
-                        <option value="0">평소</option>
-                        <option value="2000">+2,000보(보충)</option>
-                    </select>
+                </div>
+                <div class="input-wrapper">
+                    <input type="number" class="step-input" id="steps-${index}" 
+                           placeholder="걸음 수" oninput="calculate()">
                 </div>
             `;
             container.appendChild(row);
@@ -70,32 +70,41 @@
         calculate();
     }
 
+    function handleTypeChange(index) {
+        const type = document.getElementById(`type-${index}`).value;
+        const input = document.getElementById(`steps-${index}`);
+        
+        if (type === 'special' || type === 'rest') {
+            input.value = 7000; // 자전거/필라테스/휴식은 7천보 자동 입력
+            input.readOnly = true;
+            input.style.backgroundColor = "#f0fdf4";
+        } else {
+            input.value = "";
+            input.readOnly = false;
+            input.style.backgroundColor = "#fff";
+        }
+        calculate();
+    }
+
     function calculate() {
-        let totalFine = 35000; // 최대 벌금에서 시작
-        const activities = document.querySelectorAll('.activity-sel');
-        const bonuses = document.querySelectorAll('.bonus-sel');
+        let totalStepsWon = 0;
+        const inputs = document.querySelectorAll('.step-input');
 
-        activities.forEach((sel, i) => {
-            const val = sel.value;
-            const extra = parseInt(bonuses[i].value); // 보충 필요 여부
+        inputs.forEach((input) => {
+            let val = parseInt(input.value) || 0;
             
-            let isSuccess = false;
-
-            if (val === 'success') {
-                // 일반 성공 시 보충 목표(9000) 달성 여부는 입력자의 양심에 맡기거나 
-                // 수동으로 체크하도록 드롭다운으로 분리
-                isSuccess = true; 
-            } else if (val === 'special' || val === 'rest' || val === 'double') {
-                isSuccess = true;
+            // 규칙 반영: 21,000보 이상 입력 시 14,000보로 계산 (3일 분량 무효)
+            if (val >= 21000) {
+                val = 14000;
             }
-
-            if (isSuccess) {
-                totalFine -= DAILY_FINE;
-            }
+            
+            totalStepsWon += val;
         });
 
-        if (totalFine < 0) totalFine = 0;
-        document.getElementById('finalPenalty').innerText = `₩${totalFine.toLocaleString()}`;
+        let finalPenalty = MAX_PENALTY - totalStepsWon;
+        if (finalPenalty < 0) finalPenalty = 0;
+        
+        document.getElementById('finalPenalty').innerText = `₩${finalPenalty.toLocaleString()}`;
     }
 
     window.onload = init;
