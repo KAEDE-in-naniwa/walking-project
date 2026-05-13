@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>가족 걷기 프로젝트 v5</title>
+    <title>가족 걷기 프로젝트 v6</title>
     <style>
         :root { --primary: #4CAF50; --danger: #f44336; --warning: #ff9800; --lucky: #9c27b0; --bg: #f4f7f6; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); padding: 20px; color: #333; max-width: 500px; margin: 0 auto; }
@@ -13,19 +13,23 @@
         
         .day-row { padding: 15px 0; border-bottom: 1px solid #eee; }
         .day-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-        .day-label { font-weight: bold; font-size: 1.1rem; }
-        .status-badge { font-size: 0.75rem; padding: 4px 8px; border-radius: 20px; font-weight: bold; }
+        .day-label { font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
         
-        .badge-danger { background: #ffebee; color: var(--danger); } /* 위기 */
-        .badge-lucky { background: #f3e5f5; color: var(--lucky); }  /* 안심/행운 */
+        .status-badge { font-size: 0.7rem; padding: 4px 8px; border-radius: 20px; font-weight: bold; white-space: nowrap; }
+        .badge-danger { background: #ffebee; color: var(--danger); }
+        .badge-warning { background: #fff3e0; color: var(--warning); }
+        .badge-lucky { background: #f3e5f5; color: var(--lucky); }
         .badge-none { display: none; }
 
-        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .input-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
         .input-item { display: flex; flex-direction: column; gap: 5px; }
-        label { font-size: 0.75rem; color: #888; }
+        label { font-size: 0.7rem; color: #888; font-weight: 600; }
         
         input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box; }
-        input:focus { border-color: var(--primary); outline: none; }
+        input[readonly] { background-color: #f9f9f9; color: #ccc; }
+        
+        .rest-check { display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; }
+        .rest-check input { width: 18px; height: 18px; cursor: pointer; }
         
         .summary-info { font-size: 0.8rem; color: #666; text-align: center; margin-top: 10px; line-height: 1.5; }
     </style>
@@ -33,23 +37,21 @@
 <body>
 
 <div class="card">
-    <h2>💰 이번 주 최종 벌금</h2>
-    <div class="status-box" id="finalPenalty">₩49,000</div>
+    <h2>💰 주간 최종 벌금</h2>
+    <div class="status-box" id="finalPenalty">₩42,000</div>
     <div class="summary-info">
-        1걸음 = 1원 차감 (기본 ₩49,000)<br>
-        <strong>필라테스/자전거는 기본 7,000보 합산</strong>
+        기본 ₩42,000 (7,000보 × 6일 기준)<br>
+        <strong>일주일 중 하루는 휴식(차감 제외) 가능</strong>
     </div>
 </div>
 
 <div class="card">
-    <h2>📅 주간 기록 (중복 입력 가능)</h2>
-    <div id="weeklyContainer">
-        <!-- 요일별 로우 자동 생성 -->
-    </div>
+    <h2>📅 주간 기록</h2>
+    <div id="weeklyContainer"></div>
 </div>
 
 <script>
-    const MAX_PENALTY = 49000;
+    const MAX_PENALTY = 42000; 
     const days = ['월', '화', '수', '목', '금', '토', '일'];
     
     function init() {
@@ -60,16 +62,22 @@
             row.innerHTML = `
                 <div class="day-header">
                     <span class="day-label">${day}</span>
-                    <span id="badge-${index}" class="status-badge badge-none"></span>
+                    <div id="badge-container-${index}" style="display:flex; gap:5px;">
+                        <span id="badge-status-${index}" class="status-badge badge-none"></span>
+                    </div>
                 </div>
                 <div class="input-grid">
                     <div class="input-item">
                         <label>실제 걷기</label>
-                        <input type="number" class="step-input" id="walk-${index}" placeholder="0" oninput="calculate()">
+                        <input type="number" class="step-input" id="walk-${index}" min="0" placeholder="0" oninput="calculate()">
                     </div>
                     <div class="input-item">
                         <label>필라/자전거(회)</label>
-                        <input type="number" class="special-input" id="spec-${index}" placeholder="0" oninput="calculate()">
+                        <input type="number" class="spec-input" id="spec-${index}" min="0" placeholder="0" oninput="calculate()">
+                    </div>
+                    <div class="rest-check">
+                        <label>휴식</label>
+                        <input type="checkbox" id="rest-${index}" onchange="handleRest(${index})">
                     </div>
                 </div>
             `;
@@ -78,52 +86,74 @@
         calculate();
     }
 
+    function handleRest(index) {
+        const isRest = document.getElementById(`rest-${index}`).checked;
+        const walkInput = document.getElementById(`walk-${index}`);
+        const specInput = document.getElementById(`spec-${index}`);
+        
+        if (isRest) {
+            walkInput.value = "";
+            specInput.value = "";
+            walkInput.readOnly = true;
+            specInput.readOnly = true;
+        } else {
+            walkInput.readOnly = false;
+            specInput.readOnly = false;
+        }
+        calculate();
+    }
+
     function calculate() {
         let totalDeduction = 0;
-        let prevDayStatus = "normal"; // 전날 상태 추적용
+        let prevDayStatus = "normal";
 
         days.forEach((_, i) => {
-            const walkSteps = parseInt(document.getElementById(`walk-${i}`).value) || 0;
-            const specCount = parseInt(document.getElementById(`spec-${i}`).value) || 0;
-            const badge = document.getElementById(`badge-${i}`);
+            const isRest = document.getElementById(`rest-${i}`).checked;
+            const badge = document.getElementById(`badge-status-${i}`);
             
-            // 1. 합산 로직 (필라테스 1회당 7,000보)
+            if (isRest) {
+                badge.innerText = "🛌 휴식";
+                badge.className = "status-badge badge-warning";
+                prevDayStatus = "normal";
+                return; 
+            }
+
+            let walkSteps = Math.max(0, parseInt(document.getElementById(`walk-${i}`).value) || 0);
+            let specCount = Math.max(0, parseInt(document.getElementById(`spec-${i}`).value) || 0);
+            
+            // 음수 강제 보정
+            document.getElementById(`walk-${i}`).value = walkSteps === 0 && document.getElementById(`walk-${i}`).value.includes('-') ? 0 : document.getElementById(`walk-${i}`).value;
+
             let dailyTotal = walkSteps + (specCount * 7000);
-            
-            // 2. 3일 몰아걷기 캡 (21,000보 이상은 14,000보로 제한)
             if (dailyTotal >= 21000) dailyTotal = 14000;
 
             totalDeduction += dailyTotal;
+            badge.className = "status-badge badge-none";
 
-            // 3. 상태 표시 로직
-            badge.className = "status-badge badge-none"; // 초기화
-            
-            // [위기 표시] 전날 5000~7000 사이였고, 오늘 아직 9000 미만인 경우
-            if (prevDayStatus === "danger-zone") {
+            // 1. 미달 마크 (5000보 미만)
+            if (dailyTotal < 5000) {
+                badge.innerText = "⚠️ 미달";
+                badge.className = "status-badge badge-danger";
+            } 
+            // 2. 보충 위기 알림
+            else if (prevDayStatus === "danger-zone") {
                 if (dailyTotal < 9000) {
                     badge.innerText = "🚨 보충 위기 (9천보 목표)";
                     badge.className = "status-badge badge-danger";
                 }
-            }
-
-            // [안심/행운 표시] 14,000보 이상인 경우
+            } 
+            // 3. 행운/안심 (14000보 이상)
             if (dailyTotal >= 14000) {
-                badge.innerText = "🍀 행운/안심 (최고)";
+                badge.innerText = "🍀 안심";
                 badge.className = "status-badge badge-lucky";
             }
 
-            // 다음 루프를 위해 현재 상태 저장
-            if (dailyTotal >= 5000 && dailyTotal < 7000) {
-                prevDayStatus = "danger-zone";
-            } else {
-                prevDayStatus = "normal";
-            }
+            // 다음 날 위기 여부 결정
+            prevDayStatus = (dailyTotal >= 5000 && dailyTotal < 7000) ? "danger-zone" : "normal";
         });
 
         let finalPenalty = MAX_PENALTY - totalDeduction;
-        if (finalPenalty < 0) finalPenalty = 0;
-        
-        document.getElementById('finalPenalty').innerText = `₩${finalPenalty.toLocaleString()}`;
+        document.getElementById('finalPenalty').innerText = `₩${Math.max(0, finalPenalty).toLocaleString()}`;
     }
 
     window.onload = init;
