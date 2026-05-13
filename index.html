@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>가족 걷기 프로젝트 v8</title>
+    <title>가족 걷기 프로젝트 v9</title>
+    
+    <!-- 귀여운 신발 아이콘 설정 (홈 화면 추가 시 아이콘으로 표시됨) -->
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/8061/8061327.png">
+    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/8061/8061327.png">
+    
     <style>
         :root { --primary: #4CAF50; --danger: #f44336; --warning: #ff9800; --lucky: #9c27b0; --bg: #f4f7f6; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); padding: 20px; color: #333; max-width: 500px; margin: 0 auto; }
@@ -12,25 +17,26 @@
         .status-box { font-size: 1.8rem; font-weight: bold; text-align: center; padding: 20px; background: #fff; border: 2px solid var(--primary); border-radius: 12px; margin-bottom: 10px; color: var(--danger); }
         
         .day-row { padding: 15px 0; border-bottom: 1px solid #eee; }
-        .day-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 5px; }
+        .day-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
         .day-label { font-weight: bold; font-size: 1.1rem; }
         
-        .badge-container { display: flex; gap: 4px; flex-wrap: wrap; }
-        .status-badge { font-size: 0.65rem; padding: 3px 7px; border-radius: 20px; font-weight: bold; white-space: nowrap; }
-        
-        .badge-danger { background: #ffebee; color: var(--danger); }   /* 미달, 보충 */
-        .badge-success { background: #e8f5e9; color: var(--primary); } /* 달성 */
-        .badge-warning { background: #fff3e0; color: var(--warning); } /* 휴식 */
-        .badge-lucky { background: #f3e5f5; color: var(--lucky); }    /* 안심 */
+        .badge-container { display: flex; gap: 4px; }
+        .status-badge { font-size: 0.65rem; padding: 3px 7px; border-radius: 20px; font-weight: bold; }
+        .badge-danger { background: #ffebee; color: var(--danger); }
+        .badge-success { background: #e8f5e9; color: var(--primary); }
+        .badge-warning { background: #fff3e0; color: var(--warning); }
+        .badge-lucky { background: #f3e5f5; color: var(--lucky); }
 
-        .input-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
-        .input-item { display: flex; flex-direction: column; gap: 5px; }
-        label { font-size: 0.7rem; color: #888; font-weight: 600; }
-        
-        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box; }
-        input[readonly] { background-color: #f9f9f9; color: #ccc; }
-        
-        .rest-check { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .input-section { display: flex; flex-direction: column; gap: 12px; }
+        .walk-input-group { display: flex; align-items: center; gap: 10px; }
+        .walk-input-group label { font-size: 0.8rem; font-weight: bold; width: 60px; }
+        input[type="number"] { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.9rem; }
+
+        .radio-group { display: flex; flex-wrap: wrap; gap: 8px; background: #f9f9f9; padding: 10px; border-radius: 8px; }
+        .radio-item { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; cursor: pointer; }
+        .radio-item input { margin: 0; cursor: pointer; }
+
+        .rest-toggle { font-size: 0.75rem; color: #888; display: flex; align-items: center; gap: 5px; justify-content: flex-end; margin-top: 5px; }
         .summary-info { font-size: 0.8rem; color: #666; text-align: center; margin-top: 10px; line-height: 1.5; }
     </style>
 </head>
@@ -40,8 +46,8 @@
     <h2>💰 주간 최종 벌금</h2>
     <div class="status-box" id="finalPenalty">₩49,000</div>
     <div class="summary-info">
-        기본 벌금 ₩49,000 (7,000보 × 7일 기준)<br>
-        <strong>휴식 사용 시 7,000원이 자동 차감됩니다.</strong>
+        기본 ₩49,000 | 1보 = 1원 차감<br>
+        <strong>휴식 또는 대체운동 선택 시 7,000원 차감</strong>
     </div>
 </div>
 
@@ -51,7 +57,7 @@
 </div>
 
 <script>
-    const MAX_PENALTY = 49000; 
+    const MAX_PENALTY = 49000;
     const days = ['월', '화', '수', '목', '금', '토', '일'];
     
     function init() {
@@ -64,18 +70,19 @@
                     <span class="day-label">${day}</span>
                     <div id="badge-area-${index}" class="badge-container"></div>
                 </div>
-                <div class="input-grid">
-                    <div class="input-item">
-                        <label>실제 걷기</label>
-                        <input type="number" class="step-input" id="walk-${index}" min="0" placeholder="0" oninput="calculate()">
+                <div class="input-section">
+                    <div class="walk-input-group">
+                        <label>걸음 수</label>
+                        <input type="number" id="walk-${index}" min="0" placeholder="0" oninput="calculate()">
                     </div>
-                    <div class="input-item">
-                        <label>필라/자전거(회)</label>
-                        <input type="number" class="spec-input" id="spec-${index}" min="0" placeholder="0" oninput="calculate()">
+                    <div class="radio-group">
+                        <label class="radio-item"><input type="radio" name="ex-${index}" value="none" checked onchange="calculate()"> 없음</label>
+                        <label class="radio-item"><input type="radio" name="ex-${index}" value="pila" onchange="calculate()"> 필라테스(60m)</label>
+                        <label class="radio-item"><input type="radio" name="ex-${index}" value="bike" onchange="calculate()"> 자전거(30m)</label>
+                        <label class="radio-item"><input type="radio" name="ex-${index}" value="alt" onchange="calculate()"> 대체운동</label>
                     </div>
-                    <div class="rest-check">
-                        <label>휴식</label>
-                        <input type="checkbox" id="rest-${index}" onchange="handleRest(${index})">
+                    <div class="rest-toggle">
+                        <label><input type="checkbox" id="rest-${index}" onchange="handleRest(${index})"> 이번 달 휴식권 사용</label>
                     </div>
                 </div>
             `;
@@ -87,13 +94,15 @@
     function handleRest(index) {
         const isRest = document.getElementById(`rest-${index}`).checked;
         const walkInput = document.getElementById(`walk-${index}`);
-        const specInput = document.getElementById(`spec-${index}`);
+        const radios = document.getElementsByName(`ex-${index}`);
         
         if (isRest) {
-            walkInput.value = ""; specInput.value = "";
-            walkInput.readOnly = true; specInput.readOnly = true;
+            walkInput.value = "";
+            walkInput.disabled = true;
+            radios.forEach(r => r.disabled = true);
         } else {
-            walkInput.readOnly = false; specInput.readOnly = false;
+            walkInput.disabled = false;
+            radios.forEach(r => r.disabled = false);
         }
         calculate();
     }
@@ -109,49 +118,35 @@
         days.forEach((_, i) => {
             const isRest = document.getElementById(`rest-${i}`).checked;
             const badgeArea = document.getElementById(`badge-area-${i}`);
+            const selectedEx = document.querySelector(`input[name="ex-${i}"]:checked`).value;
             let badges = [];
             
-            // 1. 휴식 처리 (7,000원 차감)
             if (isRest) {
                 totalDeduction += 7000;
                 badges.push(createBadge("🛌 휴식", "badge-warning"));
                 badgeArea.innerHTML = badges.join('');
                 prevDayStatus = "normal";
-                return; 
+                return;
             }
 
             let walkSteps = Math.max(0, parseInt(document.getElementById(`walk-${i}`).value) || 0);
-            let specCount = Math.max(0, parseInt(document.getElementById(`spec-${i}`).value) || 0);
+            let exBonus = (selectedEx !== 'none') ? 7000 : 0;
             
-            // 음수 방지 로직
-            if (document.getElementById(`walk-${i}`).value < 0) document.getElementById(`walk-${i}`).value = 0;
-            if (document.getElementById(`spec-${i}`).value < 0) document.getElementById(`spec-${i}`).value = 0;
-
-            let dailyTotal = walkSteps + (specCount * 7000);
+            let dailyTotal = walkSteps + exBonus;
             if (dailyTotal >= 21000) dailyTotal = 14000; 
 
             totalDeduction += dailyTotal;
 
-            // 마크 판별 로직
-            if (dailyTotal < 5000) {
-                badges.push(createBadge("⚠️ 미달", "badge-danger"));
-            } 
-            if (dailyTotal >= 7000) {
-                badges.push(createBadge("✅ 달성", "badge-success"));
-            }
-            if (prevDayStatus === "danger-zone" && dailyTotal < 9000) {
-                badges.push(createBadge("🚨 보충", "badge-danger"));
-            }
-            if (dailyTotal >= 14000) {
-                badges.push(createBadge("🍀 안심", "badge-lucky"));
-            }
+            if (dailyTotal < 5000) badges.push(createBadge("⚠️ 미달", "badge-danger"));
+            if (dailyTotal >= 7000) badges.push(createBadge("✅ 달성", "badge-success"));
+            if (prevDayStatus === "danger-zone" && dailyTotal < 9000) badges.push(createBadge("🚨 보충", "badge-danger"));
+            if (dailyTotal >= 14000) badges.push(createBadge("🍀 안심", "badge-lucky"));
 
             badgeArea.innerHTML = badges.join('');
             prevDayStatus = (dailyTotal >= 5000 && dailyTotal < 7000) ? "danger-zone" : "normal";
         });
 
-        let finalPenalty = MAX_PENALTY - totalDeduction;
-        document.getElementById('finalPenalty').innerText = `₩${Math.max(0, finalPenalty).toLocaleString()}`;
+        document.getElementById('finalPenalty').innerText = `₩${Math.max(0, MAX_PENALTY - totalDeduction).toLocaleString()}`;
     }
 
     window.onload = init;
