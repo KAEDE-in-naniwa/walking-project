@@ -3,100 +3,131 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>가족 걷기 프로젝트</title>
+    <title>가족 걷기 프로젝트 v2</title>
     <style>
         :root { --primary: #4CAF50; --danger: #f44336; --bg: #f4f7f6; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); padding: 20px; color: #333; line-height: 1.6; }
-        .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        h2 { margin-top: 0; color: #2c3e50; font-size: 1.2rem; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); padding: 20px; color: #333; line-height: 1.6; max-width: 500px; margin: 0 auto; }
+        .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        h2 { margin-top: 0; color: #2c3e50; font-size: 1.1rem; border-bottom: 2px solid var(--primary); display: inline-block; padding-bottom: 5px; }
         .status-box { font-size: 1.5rem; font-weight: bold; text-align: center; padding: 20px; background: #fff; border: 2px solid var(--primary); border-radius: 12px; margin: 15px 0; color: var(--danger); }
         .input-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.85rem; color: #666; }
         input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
-        button { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: background 0.3s; }
-        button:active { background: #388E3C; transform: scale(0.98); }
-        .log { font-size: 0.9rem; color: #666; margin-top: 15px; padding: 10px; border-left: 4px solid var(--primary); background: #f0fdf4; }
+        button { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; }
+        button:active { transform: scale(0.98); }
+        .history-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
+        .history-table th, .history-table td { border-bottom: 1px solid #eee; padding: 10px 5px; text-align: center; }
+        .history-table th { color: #888; }
+        .success { color: var(--primary); font-weight: bold; }
+        .fail { color: var(--danger); }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>💰 이번 주 남은 벌금</h2>
+    <h2>💰 남은 주간 벌금 현황</h2>
     <div class="status-box" id="totalPenaltyDisplay">₩35,000</div>
-    <p style="font-size: 0.8rem; color: #999; text-align: center;">월요일 0원부터 시작해 매일 성공 시 차감됩니다.</p>
+    <p style="font-size: 0.75rem; color: #999; text-align: center;">기록을 추가하면 ₩5,000씩 자동 차감됩니다.</p>
 </div>
 
 <div class="card">
-    <h3>오늘의 활동 기록</h3>
+    <h3>활동 기록하기</h3>
+    <div class="input-group">
+        <label>활동 날짜 선택</label>
+        <input type="date" id="activityDate">
+    </div>
+
     <div class="input-group">
         <label>활동 종류</label>
         <select id="activityType" onchange="toggleSteps()">
             <option value="walk">일반 걷기</option>
-            <option value="special">자전거 / 필라테스 (7천보 인정)</option>
+            <option value="special">자전거 / 필라테스 (7천보)</option>
             <option value="rest">정기 휴식 (주 1회)</option>
         </select>
     </div>
     
     <div id="stepInputGroup" class="input-group">
         <label>걸음 수</label>
-        <input type="number" id="dailySteps" placeholder="만보기 숫자를 적어주세요">
+        <input type="number" id="dailySteps" placeholder="숫자만 입력">
     </div>
 
     <div class="input-group">
-        <label>어제 목표 달성 여부</label>
+        <label>전날 실패 보충 여부 (+2,000보)</label>
         <select id="yesterdayFailed">
-            <option value="no">성공 (혹은 휴식)</option>
-            <option value="yes">실패 (+2,000보 보충 필요)</option>
+            <option value="no">없음 (7천보 목표)</option>
+            <option value="yes">있음 (9천보 목표)</option>
         </select>
     </div>
 
-    <button onclick="applyDeduction()">기록 반영 및 차감</button>
-    <div id="resultLog" class="log" style="display:none;"></div>
+    <button onclick="addRecord()">기록 추가 및 차감</button>
+</div>
+
+<div class="card">
+    <h3>이번 주 기록 리스트</h3>
+    <table class="history-table">
+        <thead>
+            <tr>
+                <th>날짜</th>
+                <th>걸음</th>
+                <th>결과</th>
+            </tr>
+        </thead>
+        <tbody id="historyBody">
+            <!-- 기록이 여기에 쌓입니다 -->
+        </tbody>
+    </table>
 </div>
 
 <script>
-    // 일일 벌금 기준 (예: 하루 5,000원 x 7일 = 35,000원 시작)
     let currentDebt = 35000;
     const DAILY_FINE = 5000;
+
+    // 오늘 날짜로 기본 설정
+    document.getElementById('activityDate').valueAsDate = new Date();
 
     function toggleSteps() {
         const type = document.getElementById('activityType').value;
         document.getElementById('stepInputGroup').style.display = (type === 'walk') ? 'block' : 'none';
     }
 
-    function applyDeduction() {
+    function addRecord() {
+        const date = document.getElementById('activityDate').value;
         const type = document.getElementById('activityType').value;
         const yesterdayFailed = document.getElementById('yesterdayFailed').value === 'yes';
-        let steps = parseInt(document.getElementById('dailySteps').value) || 0;
+        const stepsInput = document.getElementById('dailySteps').value;
+        let steps = parseInt(stepsInput) || 0;
+        
         let isSuccess = false;
-        let message = "";
-
+        let displaySteps = "";
         const target = yesterdayFailed ? 9000 : 7000;
 
-        if (type === 'special' || type === 'rest') {
+        if (type === 'special') {
             isSuccess = true;
-            message = type === 'special' ? "🚴 대체 운동 인정! 오늘치 벌금이 차감되었습니다." : "쉼표도 운동입니다! 휴식일 적용 완료.";
+            displaySteps = "자전거/필라";
+        } else if (type === 'rest') {
+            isSuccess = true;
+            displaySteps = "정기휴식";
         } else {
-            // 3일 몰아걷기 제한 로직 (21,000보 입력 시 14,000보만 인정)
-            let validSteps = steps >= 21000 ? 14000 : steps;
-            
-            if (validSteps >= target) {
-                isSuccess = true;
-                message = `🎉 ${validSteps.toLocaleString()}보 달성! 목표(${target.toLocaleString()}보)를 채웠습니다.`;
-            } else {
-                message = `😢 ${validSteps.toLocaleString()}보 기록. 목표(${target.toLocaleString()}보) 미달로 벌금이 유지됩니다.`;
-            }
+            // 3일 몰아걷기 방지 로직 (21000보 이상 무효, 14000보 캡)
+            let effectiveSteps = steps >= 21000 ? 14000 : steps;
+            displaySteps = effectiveSteps.toLocaleString();
+            if (effectiveSteps >= target) isSuccess = true;
         }
 
         if (isSuccess) {
             currentDebt -= DAILY_FINE;
             if (currentDebt < 0) currentDebt = 0;
+            document.getElementById('totalPenaltyDisplay').innerText = `₩${currentDebt.toLocaleString()}`;
         }
 
-        document.getElementById('totalPenaltyDisplay').innerText = `₩${currentDebt.toLocaleString()}`;
-        const logBox = document.getElementById('resultLog');
-        logBox.innerText = message;
-        logBox.style.display = 'block';
+        // 리스트에 추가
+        const tbody = document.getElementById('historyBody');
+        const row = tbody.insertRow(0); // 최신 기록이 위로
+        row.innerHTML = `
+            <td>${date.split('-')[2]}일</td>
+            <td>${displaySteps}</td>
+            <td class="${isSuccess ? 'success' : 'fail'}">${isSuccess ? '성공' : '미달'}</td>
+        `;
     }
 </script>
 
